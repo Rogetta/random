@@ -4,15 +4,16 @@
 #include <QAction>
 #include <QApplication>
 #include <QComboBox>
+#include <QCheckBox>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QScrollArea>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QLineEdit>
 #include <QListWidget>
 #include <QMenu>
 #include <QMenuBar>
@@ -137,6 +138,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     darkTheme = settings.value("darkTheme", false).toBool();
     autoLoadAction->setChecked(
         settings.value("autoLoadLastList", false).toBool());
+    noRepeatAction->setChecked(
+        settings.value("noRepeatDraw", false).toBool());
+    noRepeatCheckBox->setChecked(noRepeatAction->isChecked());
 
     applyTheme();
     loadLastListIfEnabled();
@@ -152,6 +156,10 @@ void MainWindow::setupMenuBar()
     settingsMenu = menuBar()->addMenu("设置");
     autoLoadAction = settingsMenu->addAction("自动加载上一次的名单");
     autoLoadAction->setCheckable(true);
+
+    noRepeatAction = settingsMenu->addAction("已经抽到的人员不再抽取");
+    noRepeatAction->setCheckable(true);
+
     themeAction = settingsMenu->addAction("亮暗主题切换");
 
     aboutMenu = menuBar()->addMenu("关于");
@@ -167,7 +175,6 @@ void MainWindow::setupUi()
     mainLayout->setContentsMargins(8, 8, 8, 8);
     mainLayout->setSpacing(8);
 
-    // 顶部：已加载名单标签 + 添加名单按钮
     auto *listBar = new QWidget(this);
     auto *listBarLayout = new QHBoxLayout(listBar);
     listBarLayout->setContentsMargins(0, 0, 0, 0);
@@ -192,7 +199,7 @@ void MainWindow::setupUi()
     mainSplitter->setChildrenCollapsible(false);
     mainSplitter->setHandleWidth(6);
 
-    // 左侧：人员列表 + 添加人员
+    // 左侧：名单 + 记录数量 + 添加人员
     auto *leftWidget = new QWidget(this);
     auto *leftLayout = new QVBoxLayout(leftWidget);
     leftLayout->setContentsMargins(0, 0, 0, 0);
@@ -203,15 +210,26 @@ void MainWindow::setupUi()
     personListWidget->setAlternatingRowColors(true);
     leftLayout->addWidget(personListWidget, 1);
 
+    historyCountLabel = new QLabel("共0条记录", this);
+    historyCountLabel->setObjectName("historyCountLabel");
+    leftLayout->addWidget(historyCountLabel);
+
     addPersonButton = new QPushButton("添加人员", this);
     addPersonButton->setMinimumHeight(40);
     leftLayout->addWidget(addPersonButton);
 
-    // 右侧：上方人员信息，下方筛选 + 抽取
+    // 右侧
     auto *rightWidget = new QWidget(this);
     auto *rightLayout = new QVBoxLayout(rightWidget);
     rightLayout->setContentsMargins(0, 0, 0, 0);
     rightLayout->setSpacing(10);
+
+    // 上半部分：当前人员信息 + 历史抽取记录
+    auto *personInfoArea = new QWidget(this);
+    personInfoArea->setObjectName("personInfoArea");
+    auto *personInfoLayout = new QHBoxLayout(personInfoArea);
+    personInfoLayout->setContentsMargins(0, 0, 0, 0);
+    personInfoLayout->setSpacing(10);
 
     auto *personInfoWidget = new QWidget(this);
     personInfoWidget->setObjectName("personInfoWidget");
@@ -238,70 +256,110 @@ void MainWindow::setupUi()
 
     infoLayout->addWidget(personNameLabel, 2);
     infoLayout->addWidget(informationWidget, 3);
-    rightLayout->addWidget(personInfoWidget, 7);
 
+    auto *historyWidget = new QWidget(this);
+    historyWidget->setObjectName("historyWidget");
+    auto *historyLayout = new QVBoxLayout(historyWidget);
+    historyLayout->setContentsMargins(16, 16, 16, 12);
+    historyLayout->setSpacing(8);
+
+    auto *historyTitle = new QLabel("历史抽取", this);
+    historyTitle->setStyleSheet(
+        "font-size: 17px; font-weight: 600;");
+
+    historyListWidget = new QListWidget(this);
+    historyListWidget->setSelectionMode(QAbstractItemView::SingleSelection);
+    historyListWidget->setAlternatingRowColors(true);
+
+    clearHistoryButton = new QPushButton("清除记录", this);
+    clearHistoryButton->setMinimumHeight(34);
+
+    historyLayout->addWidget(historyTitle);
+    historyLayout->addWidget(historyListWidget, 1);
+    historyLayout->addWidget(clearHistoryButton);
+
+    personInfoLayout->addWidget(personInfoWidget, 3);
+    personInfoLayout->addWidget(historyWidget, 2);
+    rightLayout->addWidget(personInfoArea, 7);
+
+    // 下半部分：筛选条件 + 抽取控制
     auto *controlWidget = new QWidget(this);
     controlWidget->setObjectName("controlWidget");
     auto *controlLayout = new QHBoxLayout(controlWidget);
     controlLayout->setContentsMargins(22, 18, 22, 18);
     controlLayout->setSpacing(20);
 
-    // 筛选条件区域
     auto *filterWidget = new QWidget(this);
     auto *filterLayout = new QVBoxLayout(filterWidget);
     filterLayout->setContentsMargins(0, 0, 0, 0);
-    filterLayout->setSpacing(8);
+    filterLayout->setSpacing(7);
 
     auto *filterTitle = new QLabel("筛选条件", this);
     filterTitle->setStyleSheet(
         "font-size: 17px; font-weight: 600;");
 
-    auto *filterRow = new QHBoxLayout();
-    filterRow->setSpacing(8);
+    auto *fieldRow = new QHBoxLayout();
+    fieldRow->setSpacing(8);
 
     filterTypeComboBox = new QComboBox(this);
-    filterTypeComboBox->setMinimumHeight(38);
-    filterTypeComboBox->setMinimumWidth(180);
+    filterTypeComboBox->setMinimumHeight(36);
+    filterTypeComboBox->setMinimumWidth(190);
     filterTypeComboBox->setToolTip(
-        "可多选字段；不选择字段时搜索全部字段");
+        "可多选字段；选择后下方列出该字段的所有条件");
 
-    filterEdit = new QLineEdit(this);
-    filterEdit->setMinimumHeight(38);
-    filterEdit->setPlaceholderText(
-        "输入关键词");
+    fieldRow->addWidget(new QLabel("字段：", this));
+    fieldRow->addWidget(filterTypeComboBox, 1);
 
-    filterRow->addWidget(filterTypeComboBox, 0);
-    filterRow->addWidget(filterEdit, 1);
+    filterConditionList = new QListWidget(this);
+    filterConditionList->setMinimumHeight(105);
+    filterConditionList->setMaximumHeight(180);
+    filterConditionList->setSelectionMode(QAbstractItemView::NoSelection);
+
+    auto *conditionButtons = new QHBoxLayout();
+    conditionButtons->setSpacing(6);
+
+    selectAllButton = new QPushButton("全选", this);
+    clearConditionsButton = new QPushButton("清除", this);
+    invertConditionsButton = new QPushButton("反选", this);
+
+    conditionButtons->addWidget(selectAllButton);
+    conditionButtons->addWidget(clearConditionsButton);
+    conditionButtons->addWidget(invertConditionsButton);
+    conditionButtons->addStretch();
 
     auto *filterHint = new QLabel(
-        "可复选多个字段；不选择字段时在全部字段中抽取",
+        "选择字段后显示所有可用条件，默认全部选中；多个条件按“或”匹配",
         this);
     filterHint->setObjectName("filterHint");
     filterHint->setWordWrap(true);
 
     filterLayout->addWidget(filterTitle);
-    filterLayout->addLayout(filterRow);
+    filterLayout->addLayout(fieldRow);
+    filterLayout->addWidget(filterConditionList, 1);
+    filterLayout->addLayout(conditionButtons);
     filterLayout->addWidget(filterHint);
-    filterLayout->addStretch();
 
-    // 抽取按钮区域
     auto *drawArea = new QWidget(this);
     auto *drawLayout = new QVBoxLayout(drawArea);
     drawLayout->setContentsMargins(0, 0, 0, 0);
+    drawLayout->setSpacing(10);
 
     drawButton = new QPushButton("抽取", this);
-    drawButton->setMinimumSize(170, 86);
-    drawButton->setSizePolicy(
-        QSizePolicy::Preferred, QSizePolicy::Expanding);
+    drawButton->setMinimumSize(180, 76);
     drawButton->setObjectName("drawButton");
+
+    noRepeatCheckBox = new QCheckBox("已经抽到的人员不再抽取", this);
+    noRepeatCheckBox->setChecked(false);
+    noRepeatCheckBox->setToolTip(
+        "开启后，已经进入历史记录的人员不会再次参与抽取");
 
     drawLayout->addStretch();
     drawLayout->addWidget(drawButton);
+    drawLayout->addWidget(noRepeatCheckBox, 0, Qt::AlignHCenter);
     drawLayout->addStretch();
 
     controlLayout->addWidget(filterWidget, 1);
     controlLayout->addWidget(drawArea, 0);
-
     rightLayout->addWidget(controlWidget, 3);
 
     mainSplitter->addWidget(leftWidget);
@@ -342,15 +400,28 @@ void MainWindow::setupConnections()
     connect(drawTimer, &QTimer::timeout,
             this, &MainWindow::drawStep);
 
-    connect(filterEdit, &QLineEdit::textChanged,
-            this, &MainWindow::filterChanged);
-
     connect(autoLoadAction, &QAction::toggled,
             this, &MainWindow::autoLoadLastListChanged);
+    connect(noRepeatAction, &QAction::toggled,
+            this, &MainWindow::setNoRepeat);
+    connect(noRepeatCheckBox, &QCheckBox::toggled,
+            this, &MainWindow::setNoRepeat);
     connect(themeAction, &QAction::triggered,
             this, &MainWindow::toggleTheme);
     connect(aboutAction, &QAction::triggered,
             this, &MainWindow::showAbout);
+
+    connect(selectAllButton, &QPushButton::clicked,
+            this, &MainWindow::selectAllConditions);
+    connect(clearConditionsButton, &QPushButton::clicked,
+            this, &MainWindow::clearConditions);
+    connect(invertConditionsButton, &QPushButton::clicked,
+            this, &MainWindow::invertConditions);
+
+    connect(filterConditionList, &QListWidget::itemChanged,
+            this, [this](QListWidgetItem *) {
+                filterChanged();
+            });
 
     connect(filterTypeComboBox->view(),
             &QAbstractItemView::pressed,
@@ -379,9 +450,31 @@ void MainWindow::setupConnections()
 
                 filterTypeComboBox->setCurrentIndex(0);
                 updateFilterSummary();
+                updateFilterConditions();
                 filterChanged();
             });
+
+    connect(historyListWidget, &QListWidget::itemClicked,
+            this, [this](QListWidgetItem *item) {
+                if (!item || currentListIndex < 0 ||
+                    currentListIndex >= nameLists.size())
+                    return;
+
+                const int index =
+                    item->data(Qt::UserRole).toInt();
+
+                if (index >= 0 &&
+                    index < nameLists[currentListIndex].people.size()) {
+                    currentDrawIndex = index;
+                    updatePersonInformation(
+                        nameLists[currentListIndex].people[index]);
+                }
+            });
+
+    connect(clearHistoryButton, &QPushButton::clicked,
+            this, &MainWindow::clearHistory);
 }
+
 
 void MainWindow::addPerson()
 {
@@ -522,6 +615,9 @@ void MainWindow::currentListChanged(int index)
 
     currentListIndex = index;
     currentDrawIndex = -1;
+    historyIndices.clear();
+    historyListWidget->clear();
+    historyCountLabel->setText("共0条记录");
     updatePersonList();
 }
 
@@ -570,6 +666,7 @@ void MainWindow::updateFilterFields()
     model->blockSignals(false);
     filterTypeComboBox->setCurrentIndex(0);
     updateFilterSummary();
+    updateFilterConditions();
 }
 
 QStringList MainWindow::selectedFilterFields() const
@@ -595,25 +692,96 @@ void MainWindow::updateFilterSummary()
 {
     const QStringList fields = selectedFilterFields();
 
-    QString text;
-    if (fields.isEmpty()) {
-        text = "未选择字段（全部）";
-    } else {
-        text = fields.join("、");
-    }
+    const QString text = fields.isEmpty()
+        ? "未选择字段（全部）"
+        : fields.join("、");
 
     filterTypeComboBox->setItemText(0, text);
     filterTypeComboBox->setToolTip(
         fields.isEmpty()
-            ? "当前未选择字段：搜索全部字段"
-            : "当前选择：" + fields.join("、"));
+            ? "当前未选择字段：全部人员参与抽取"
+            : "当前选择字段：" + fields.join("、"));
 }
+
+void MainWindow::updateFilterConditions()
+{
+    filterConditionList->blockSignals(true);
+    filterConditionList->clear();
+
+    const QStringList fields = selectedFilterFields();
+
+    if (fields.isEmpty()) {
+        filterConditionList->blockSignals(false);
+        return;
+    }
+
+    QSet<QString> seen;
+
+    for (const QString &field : fields) {
+        for (const Person &person :
+             nameLists[currentListIndex].people) {
+            QString value;
+            if (field == "姓名")
+                value = person.name;
+            else
+                value = person.information.value(field);
+
+            const QString key = field + QChar(0x1f) + value;
+            if (seen.contains(key))
+                continue;
+
+            seen.insert(key);
+
+            auto *item = new QListWidgetItem(
+                field + "：" +
+                (value.isEmpty() ? "（空）" : value),
+                filterConditionList);
+            item->setFlags(item->flags() |
+                           Qt::ItemIsUserCheckable);
+            item->setCheckState(Qt::Checked);
+            item->setData(Qt::UserRole, field);
+            item->setData(Qt::UserRole + 1, value);
+        }
+    }
+
+    filterConditionList->blockSignals(false);
+}
+
+void MainWindow::selectAllConditions()
+{
+    for (int i = 0; i < filterConditionList->count(); ++i)
+        filterConditionList->item(i)->setCheckState(Qt::Checked);
+    filterChanged();
+}
+
+void MainWindow::clearConditions()
+{
+    for (int i = 0; i < filterConditionList->count(); ++i)
+        filterConditionList->item(i)->setCheckState(Qt::Unchecked);
+    filterChanged();
+}
+
+void MainWindow::invertConditions()
+{
+    for (int i = 0; i < filterConditionList->count(); ++i) {
+        auto *item = filterConditionList->item(i);
+        item->setCheckState(
+            item->checkState() == Qt::Checked
+                ? Qt::Unchecked
+                : Qt::Checked);
+    }
+    filterChanged();
+}
+
 
 void MainWindow::updatePersonList()
 {
     personListWidget->clear();
     updateFilterFields();
     personNameLabel->setText("请选择人员");
+    historyListWidget->clear();
+    historyCountLabel->setText("共0条记录");
+    historyIndices.clear();
 
     if (currentListIndex < 0 ||
         currentListIndex >= nameLists.size())
@@ -673,11 +841,20 @@ void MainWindow::filterChanged()
         currentListIndex >= nameLists.size())
         return;
 
-    const QString keyword =
-        filterEdit->text().trimmed();
+    const QStringList fields = selectedFilterFields();
 
-    const QStringList fields =
-        selectedFilterFields();
+    QSet<QString> checkedConditions;
+    for (int i = 0; i < filterConditionList->count(); ++i) {
+        const QListWidgetItem *item =
+            filterConditionList->item(i);
+        if (item->checkState() == Qt::Checked) {
+            const QString key =
+                item->data(Qt::UserRole).toString()
+                + QChar(0x1f)
+                + item->data(Qt::UserRole + 1).toString();
+            checkedConditions.insert(key);
+        }
+    }
 
     drawCandidates.clear();
 
@@ -687,40 +864,29 @@ void MainWindow::filterChanged()
         const Person &person =
             nameLists[currentListIndex].people[i];
 
-        bool matched = keyword.isEmpty();
+        bool matched = fields.isEmpty();
 
-        if (!matched) {
-            if (fields.isEmpty()) {
-                matched =
-                    person.name.contains(
-                        keyword, Qt::CaseInsensitive);
+        if (!fields.isEmpty()) {
+            for (const QString &field : fields) {
+                QString value =
+                    field == "姓名"
+                        ? person.name
+                        : person.information.value(field);
 
-                for (auto it = person.information.cbegin();
-                     it != person.information.cend() &&
-                     !matched;
-                     ++it) {
-                    matched =
-                        it.value().contains(
-                            keyword, Qt::CaseInsensitive);
-                }
-            } else {
-                for (const QString &field : fields) {
-                    QString value;
+                const QString key =
+                    field + QChar(0x1f) + value;
 
-                    if (field == "姓名")
-                        value = person.name;
-                    else
-                        value =
-                            person.information.value(field);
-
-                    if (value.contains(
-                            keyword,
-                            Qt::CaseInsensitive)) {
-                        matched = true;
-                        break;
-                    }
+                if (checkedConditions.contains(key)) {
+                    matched = true;
+                    break;
                 }
             }
+        }
+
+        if (matched &&
+            noRepeatCheckBox->isChecked() &&
+            historyIndices.contains(i)) {
+            matched = false;
         }
 
         personListWidget->item(i)->setHidden(!matched);
@@ -742,9 +908,26 @@ void MainWindow::toggleDraw()
             currentListIndex < nameLists.size() &&
             currentDrawIndex <
                 nameLists[currentListIndex].people.size()) {
+
             updatePersonInformation(
                 nameLists[currentListIndex]
                     .people[currentDrawIndex]);
+
+            historyIndices.append(currentDrawIndex);
+
+            auto *historyItem = new QListWidgetItem(
+                nameLists[currentListIndex]
+                    .people[currentDrawIndex].name,
+                historyListWidget);
+            historyItem->setData(
+                Qt::UserRole, currentDrawIndex);
+
+            historyListWidget->scrollToBottom();
+            historyCountLabel->setText(
+                QString("共%1条记录")
+                    .arg(historyIndices.size()));
+
+            filterChanged();
         }
 
         return;
@@ -753,10 +936,20 @@ void MainWindow::toggleDraw()
     filterChanged();
 
     if (drawCandidates.isEmpty()) {
-        QMessageBox::information(
-            this,
-            "无法抽取",
-            "当前没有符合筛选条件的人员。");
+        if (noRepeatCheckBox->isChecked() &&
+            !nameLists[currentListIndex].people.isEmpty() &&
+            historyIndices.size() >=
+                nameLists[currentListIndex].people.size()) {
+            QMessageBox::information(
+                this,
+                "抽取完成",
+                "所有人都已被抽过，请清除记录");
+        } else {
+            QMessageBox::information(
+                this,
+                "无法抽取",
+                "当前没有符合筛选条件的人员。");
+        }
         return;
     }
 
@@ -780,6 +973,36 @@ void MainWindow::drawStep()
             .people[currentDrawIndex]);
 }
 
+void MainWindow::clearHistory()
+{
+    if (drawing)
+        toggleDraw();
+
+    historyIndices.clear();
+    historyListWidget->clear();
+    historyCountLabel->setText("共0条记录");
+    currentDrawIndex = -1;
+
+    if (currentListIndex >= 0 &&
+        currentListIndex < nameLists.size())
+        filterChanged();
+}
+
+void MainWindow::setNoRepeat(bool checked)
+{
+    noRepeatAction->blockSignals(true);
+    noRepeatAction->setChecked(checked);
+    noRepeatAction->blockSignals(false);
+
+    noRepeatCheckBox->blockSignals(true);
+    noRepeatCheckBox->setChecked(checked);
+    noRepeatCheckBox->blockSignals(false);
+
+    QSettings().setValue("noRepeatDraw", checked);
+    filterChanged();
+}
+
+
 void MainWindow::autoLoadLastListChanged(bool checked)
 {
     QSettings().setValue(
@@ -799,7 +1022,12 @@ void MainWindow::applyTheme()
     if (!darkTheme) {
         qApp->setStyleSheet(R"(
             QMainWindow {
-                background: #f5f6f8;
+                background: #e7e9ed;
+            }
+            QWidget {
+                background: #e7e9ed;
+                color: #202124;
+            }
             }
             QTabBar::tab {
                 background: #e8eaee;
@@ -813,8 +1041,8 @@ void MainWindow::applyTheme()
                 background: #ffffff;
                 font-weight: 600;
             }
-            QListWidget, #personInfoWidget, #controlWidget {
-                background: #ffffff;
+            QListWidget, #personInfoWidget, #controlWidget, #historyWidget {
+                background: #f8f9fb;
                 border: 1px solid #e0e2e7;
                 border-radius: 8px;
             }
@@ -825,7 +1053,7 @@ void MainWindow::applyTheme()
                 background: #e9eefc;
                 color: #1f2937;
             }
-            QLineEdit, QComboBox {
+            QComboBox {
                 background: #ffffff;
                 border: 1px solid #cfd3da;
                 border-radius: 6px;
@@ -850,7 +1078,7 @@ void MainWindow::applyTheme()
             #drawButton:hover {
                 background: #eef2ff;
             }
-            #filterHint {
+            #filterHint, #historyCountLabel {
                 color: #737985;
             }
         )");
@@ -881,7 +1109,7 @@ void MainWindow::applyTheme()
             background: #3c4043;
             font-weight: 600;
         }
-        QListWidget, #personInfoWidget, #controlWidget {
+        QListWidget, #personInfoWidget, #controlWidget, #historyWidget {
             background: #292a2d;
             border: 1px solid #45474c;
             border-radius: 8px;
@@ -894,7 +1122,7 @@ void MainWindow::applyTheme()
             background: #3c4043;
             color: #ffffff;
         }
-        QLineEdit, QComboBox {
+        QComboBox {
             background: #202124;
             color: #e8eaed;
             border: 1px solid #55585e;
@@ -915,7 +1143,7 @@ void MainWindow::applyTheme()
             font-size: 24px;
             font-weight: 700;
         }
-        #filterHint {
+        #filterHint, #historyCountLabel {
             color: #9aa0a6;
         }
     )");
@@ -927,7 +1155,7 @@ void MainWindow::showAbout()
         this,
         "关于名单抽取",
         "<h3>名单抽取</h3>"
-        "<p>版本：1.1.0</p>"
+        "<p>版本：1.2.0</p>"
         "<p>作者：Rogetta</p>"
         "<p>基于 Qt 6 / Qt Widgets 开发。</p>");
 }
