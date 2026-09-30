@@ -8,6 +8,8 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -20,6 +22,7 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QSet>
+#include <QSizePolicy>
 #include <QSplitter>
 #include <QStandardItem>
 #include <QStandardItemModel>
@@ -161,21 +164,24 @@ void MainWindow::setupUi()
     setCentralWidget(centralWidget);
 
     auto *mainLayout = new QVBoxLayout(centralWidget);
-    mainLayout->setContentsMargins(6, 6, 6, 6);
-    mainLayout->setSpacing(6);
+    mainLayout->setContentsMargins(8, 8, 8, 8);
+    mainLayout->setSpacing(8);
 
+    // 顶部：已加载名单标签 + 添加名单按钮
     auto *listBar = new QWidget(this);
     auto *listBarLayout = new QHBoxLayout(listBar);
     listBarLayout->setContentsMargins(0, 0, 0, 0);
+    listBarLayout->setSpacing(6);
 
     listTabBar = new QTabBar(this);
     listTabBar->setTabsClosable(true);
     listTabBar->setUsesScrollButtons(true);
     listTabBar->setExpanding(false);
     listTabBar->setElideMode(Qt::ElideRight);
+    listTabBar->setDocumentMode(true);
 
     addListButton = new QPushButton("+", this);
-    addListButton->setFixedSize(36, 30);
+    addListButton->setFixedSize(38, 34);
     addListButton->setToolTip("加载名单");
 
     listBarLayout->addWidget(listTabBar, 1);
@@ -184,71 +190,119 @@ void MainWindow::setupUi()
 
     mainSplitter = new QSplitter(Qt::Horizontal, this);
     mainSplitter->setChildrenCollapsible(false);
+    mainSplitter->setHandleWidth(6);
 
+    // 左侧：人员列表 + 添加人员
     auto *leftWidget = new QWidget(this);
     auto *leftLayout = new QVBoxLayout(leftWidget);
     leftLayout->setContentsMargins(0, 0, 0, 0);
+    leftLayout->setSpacing(8);
 
     personListWidget = new QListWidget(this);
     personListWidget->setSelectionMode(QAbstractItemView::SingleSelection);
-    leftLayout->addWidget(personListWidget);
+    personListWidget->setAlternatingRowColors(true);
+    leftLayout->addWidget(personListWidget, 1);
 
+    addPersonButton = new QPushButton("添加人员", this);
+    addPersonButton->setMinimumHeight(40);
+    leftLayout->addWidget(addPersonButton);
+
+    // 右侧：上方人员信息，下方筛选 + 抽取
     auto *rightWidget = new QWidget(this);
     auto *rightLayout = new QVBoxLayout(rightWidget);
     rightLayout->setContentsMargins(0, 0, 0, 0);
-    rightLayout->setSpacing(6);
+    rightLayout->setSpacing(10);
 
     auto *personInfoWidget = new QWidget(this);
+    personInfoWidget->setObjectName("personInfoWidget");
     auto *infoLayout = new QHBoxLayout(personInfoWidget);
-    infoLayout->setContentsMargins(20, 20, 20, 20);
-    infoLayout->setSpacing(20);
+    infoLayout->setContentsMargins(28, 24, 28, 24);
+    infoLayout->setSpacing(36);
 
     personNameLabel = new QLabel("请选择人员", this);
-    personNameLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    personNameLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     personNameLabel->setWordWrap(true);
+    personNameLabel->setMinimumWidth(220);
     personNameLabel->setStyleSheet(
-        "font-size: 32px; font-weight: bold;");
+        "font-size: 36px; font-weight: 700;");
 
     informationWidget = new QWidget(this);
     auto *informationLayout = new QFormLayout(informationWidget);
+    informationLayout->setContentsMargins(0, 0, 0, 0);
+    informationLayout->setHorizontalSpacing(24);
+    informationLayout->setVerticalSpacing(12);
     informationLayout->setFieldGrowthPolicy(
         QFormLayout::AllNonFixedFieldsGrow);
     informationLayout->setLabelAlignment(
-        Qt::AlignRight | Qt::AlignTop);
+        Qt::AlignRight | Qt::AlignVCenter);
 
-    infoLayout->addWidget(personNameLabel, 1);
-    infoLayout->addWidget(informationWidget, 1);
+    infoLayout->addWidget(personNameLabel, 2);
+    infoLayout->addWidget(informationWidget, 3);
     rightLayout->addWidget(personInfoWidget, 7);
 
-    auto *bottomWidget = new QWidget(this);
-    auto *bottomLayout = new QHBoxLayout(bottomWidget);
-    bottomLayout->setContentsMargins(10, 10, 10, 10);
+    auto *controlWidget = new QWidget(this);
+    controlWidget->setObjectName("controlWidget");
+    auto *controlLayout = new QHBoxLayout(controlWidget);
+    controlLayout->setContentsMargins(22, 18, 22, 18);
+    controlLayout->setSpacing(20);
 
+    // 筛选条件区域
     auto *filterWidget = new QWidget(this);
-    auto *filterLayout = new QHBoxLayout(filterWidget);
+    auto *filterLayout = new QVBoxLayout(filterWidget);
     filterLayout->setContentsMargins(0, 0, 0, 0);
+    filterLayout->setSpacing(8);
 
-    filterLayout->addWidget(new QLabel("筛选字段：", this));
+    auto *filterTitle = new QLabel("筛选条件", this);
+    filterTitle->setStyleSheet(
+        "font-size: 17px; font-weight: 600;");
+
+    auto *filterRow = new QHBoxLayout();
+    filterRow->setSpacing(8);
 
     filterTypeComboBox = new QComboBox(this);
+    filterTypeComboBox->setMinimumHeight(38);
     filterTypeComboBox->setMinimumWidth(180);
     filterTypeComboBox->setToolTip(
         "可多选字段；不选择字段时搜索全部字段");
 
     filterEdit = new QLineEdit(this);
+    filterEdit->setMinimumHeight(38);
     filterEdit->setPlaceholderText(
-        "输入筛选内容；多个字段之间按“或”匹配");
+        "输入关键词");
 
-    filterLayout->addWidget(filterTypeComboBox);
-    filterLayout->addWidget(filterEdit, 1);
+    filterRow->addWidget(filterTypeComboBox, 0);
+    filterRow->addWidget(filterEdit, 1);
+
+    auto *filterHint = new QLabel(
+        "可复选多个字段；不选择字段时在全部字段中抽取",
+        this);
+    filterHint->setObjectName("filterHint");
+    filterHint->setWordWrap(true);
+
+    filterLayout->addWidget(filterTitle);
+    filterLayout->addLayout(filterRow);
+    filterLayout->addWidget(filterHint);
+    filterLayout->addStretch();
+
+    // 抽取按钮区域
+    auto *drawArea = new QWidget(this);
+    auto *drawLayout = new QVBoxLayout(drawArea);
+    drawLayout->setContentsMargins(0, 0, 0, 0);
 
     drawButton = new QPushButton("抽取", this);
-    drawButton->setFixedSize(120, 50);
+    drawButton->setMinimumSize(170, 86);
+    drawButton->setSizePolicy(
+        QSizePolicy::Preferred, QSizePolicy::Expanding);
+    drawButton->setObjectName("drawButton");
 
-    bottomLayout->addWidget(filterWidget, 1);
-    bottomLayout->addWidget(drawButton, 0, Qt::AlignRight);
+    drawLayout->addStretch();
+    drawLayout->addWidget(drawButton);
+    drawLayout->addStretch();
 
-    rightLayout->addWidget(bottomWidget, 3);
+    controlLayout->addWidget(filterWidget, 1);
+    controlLayout->addWidget(drawArea, 0);
+
+    rightLayout->addWidget(controlWidget, 3);
 
     mainSplitter->addWidget(leftWidget);
     mainSplitter->addWidget(rightWidget);
@@ -273,6 +327,8 @@ void MainWindow::setupConnections()
 
     connect(addListButton, &QPushButton::clicked,
             this, &MainWindow::addList);
+    connect(addPersonButton, &QPushButton::clicked,
+            this, &MainWindow::addPerson);
     connect(listTabBar, &QTabBar::tabCloseRequested,
             this, &MainWindow::closeList);
     connect(listTabBar, &QTabBar::currentChanged,
@@ -325,6 +381,82 @@ void MainWindow::setupConnections()
                 updateFilterSummary();
                 filterChanged();
             });
+}
+
+void MainWindow::addPerson()
+{
+    if (currentListIndex < 0 ||
+        currentListIndex >= nameLists.size()) {
+        QMessageBox::information(
+            this, "添加人员", "请先加载一个名单。");
+        return;
+    }
+
+    QDialog dialog(this);
+    dialog.setWindowTitle("添加人员");
+    dialog.setMinimumWidth(420);
+
+    auto *layout = new QVBoxLayout(&dialog);
+    auto *form = new QFormLayout();
+    form->setFieldGrowthPolicy(
+        QFormLayout::AllNonFixedFieldsGrow);
+
+    auto *nameEdit = new QLineEdit(&dialog);
+    nameEdit->setPlaceholderText("请输入姓名");
+    form->addRow("姓名：", nameEdit);
+
+    QStringList fields;
+    for (const Person &person : nameLists[currentListIndex].people) {
+        for (auto it = person.information.cbegin();
+             it != person.information.cend(); ++it) {
+            if (!fields.contains(it.key()))
+                fields.append(it.key());
+        }
+    }
+
+    QVector<QLineEdit *> edits;
+    for (const QString &field : fields) {
+        auto *edit = new QLineEdit(&dialog);
+        edits.append(edit);
+        form->addRow(field + "：", edit);
+    }
+
+    layout->addLayout(form);
+
+    auto *buttons = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
+        &dialog);
+    layout->addWidget(buttons);
+
+    connect(buttons, &QDialogButtonBox::accepted,
+            &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected,
+            &dialog, &QDialog::reject);
+
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    const QString name = nameEdit->text().trimmed();
+    if (name.isEmpty()) {
+        QMessageBox::warning(
+            this, "添加人员", "姓名不能为空。");
+        return;
+    }
+
+    Person person;
+    person.name = name;
+    for (int i = 0; i < fields.size(); ++i)
+        person.information.insert(
+            fields.at(i), edits.at(i)->text().trimmed());
+
+    nameLists[currentListIndex].people.append(person);
+    updatePersonList();
+
+    const int row = nameLists[currentListIndex].people.size() - 1;
+    if (row >= 0 && row < personListWidget->count()) {
+        personListWidget->setCurrentRow(row);
+        updatePersonInformation(person);
+    }
 }
 
 void MainWindow::addList()
@@ -665,47 +797,126 @@ void MainWindow::toggleTheme()
 void MainWindow::applyTheme()
 {
     if (!darkTheme) {
-        qApp->setStyleSheet(QString());
+        qApp->setStyleSheet(R"(
+            QMainWindow {
+                background: #f5f6f8;
+            }
+            QTabBar::tab {
+                background: #e8eaee;
+                border: 1px solid #d5d8de;
+                border-bottom: none;
+                padding: 8px 16px;
+                margin-right: 2px;
+                min-width: 90px;
+            }
+            QTabBar::tab:selected {
+                background: #ffffff;
+                font-weight: 600;
+            }
+            QListWidget, #personInfoWidget, #controlWidget {
+                background: #ffffff;
+                border: 1px solid #e0e2e7;
+                border-radius: 8px;
+            }
+            QListWidget::item {
+                padding: 8px 10px;
+            }
+            QListWidget::item:selected {
+                background: #e9eefc;
+                color: #1f2937;
+            }
+            QLineEdit, QComboBox {
+                background: #ffffff;
+                border: 1px solid #cfd3da;
+                border-radius: 6px;
+                padding: 5px 9px;
+            }
+            QLineEdit:focus, QComboBox:focus {
+                border: 1px solid #7b8ed6;
+            }
+            QPushButton {
+                background: #ffffff;
+                border: 1px solid #cfd3da;
+                border-radius: 7px;
+                padding: 7px 14px;
+            }
+            QPushButton:hover {
+                background: #f1f3f6;
+            }
+            #drawButton {
+                font-size: 24px;
+                font-weight: 700;
+            }
+            #drawButton:hover {
+                background: #eef2ff;
+            }
+            #filterHint {
+                color: #737985;
+            }
+        )");
         return;
     }
 
     qApp->setStyleSheet(R"(
-        QWidget {
-            background-color: #202124;
-            color: #e8eaed;
+        QMainWindow {
+            background: #202124;
         }
         QMenuBar, QMenu {
-            background-color: #202124;
+            background: #202124;
             color: #e8eaed;
         }
         QMenu::item:selected {
-            background-color: #3c4043;
-        }
-        QListWidget, QLineEdit, QComboBox {
-            background-color: #292a2d;
-            border: 1px solid #555;
-        }
-        QListWidget::item:selected {
-            background-color: #3c4043;
-        }
-        QComboBox QAbstractItemView {
-            background-color: #292a2d;
-            color: #e8eaed;
-        }
-        QPushButton {
-            background-color: #303134;
-            border: 1px solid #555;
-            padding: 7px 12px;
-        }
-        QPushButton:hover {
-            background-color: #3c4043;
+            background: #3c4043;
         }
         QTabBar::tab {
-            background-color: #292a2d;
-            padding: 7px 14px;
+            background: #292a2d;
+            color: #e8eaed;
+            border: 1px solid #3d4044;
+            border-bottom: none;
+            padding: 8px 16px;
+            margin-right: 2px;
+            min-width: 90px;
         }
         QTabBar::tab:selected {
-            background-color: #3c4043;
+            background: #3c4043;
+            font-weight: 600;
+        }
+        QListWidget, #personInfoWidget, #controlWidget {
+            background: #292a2d;
+            border: 1px solid #45474c;
+            border-radius: 8px;
+            color: #e8eaed;
+        }
+        QListWidget::item {
+            padding: 8px 10px;
+        }
+        QListWidget::item:selected {
+            background: #3c4043;
+            color: #ffffff;
+        }
+        QLineEdit, QComboBox {
+            background: #202124;
+            color: #e8eaed;
+            border: 1px solid #55585e;
+            border-radius: 6px;
+            padding: 5px 9px;
+        }
+        QPushButton {
+            background: #303134;
+            color: #e8eaed;
+            border: 1px solid #55585e;
+            border-radius: 7px;
+            padding: 7px 14px;
+        }
+        QPushButton:hover {
+            background: #3c4043;
+        }
+        #drawButton {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        #filterHint {
+            color: #9aa0a6;
         }
     )");
 }
