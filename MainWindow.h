@@ -16,6 +16,7 @@ class QLabel;
 class QWidget;
 class QAction;
 class QTimer;
+class QMenu;
 
 struct Person {
     QString name;
