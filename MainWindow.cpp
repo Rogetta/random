@@ -859,7 +859,7 @@ bool MainWindow::deserializeList(
             splitMarkdownRow(lines.first());
 
         for (QString &header : headers)
-            header = unescapeMarkdownCell(header);
+            header = header;
 
         if (headers.isEmpty() ||
             headers.first() != "姓名")
