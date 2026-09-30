@@ -779,9 +779,6 @@ void MainWindow::updatePersonList()
     personListWidget->clear();
     updateFilterFields();
     personNameLabel->setText("请选择人员");
-    historyListWidget->clear();
-    historyCountLabel->setText("共0条记录");
-    historyIndices.clear();
 
     if (currentListIndex < 0 ||
         currentListIndex >= nameLists.size())
@@ -936,9 +933,13 @@ void MainWindow::toggleDraw()
     filterChanged();
 
     if (drawCandidates.isEmpty()) {
+        QSet<int> uniqueHistory;
+        for (const int index : historyIndices)
+            uniqueHistory.insert(index);
+
         if (noRepeatCheckBox->isChecked() &&
             !nameLists[currentListIndex].people.isEmpty() &&
-            historyIndices.size() >=
+            uniqueHistory.size() >=
                 nameLists[currentListIndex].people.size()) {
             QMessageBox::information(
                 this,
