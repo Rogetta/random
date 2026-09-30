@@ -59,8 +59,12 @@ private:
     void updatePersonList();
     void updatePersonInformation(const Person &person);
     void updateFilterFields();
+    void updateFilterSummary();
+    QStringList selectedFilterFields() const;
     void updateDrawCandidates();
     QString serializeList(const NameList &list) const;
+    QString serializeMarkdown(const NameList &list) const;
+    QString serializeCsv(const NameList &list) const;
     bool deserializeList(const QString &filePath, NameList &list);
     void saveLastPath(const QString &path);
     void loadLastListIfEnabled();
