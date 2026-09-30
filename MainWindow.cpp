@@ -299,7 +299,7 @@ void MainWindow::toggleTheme()
 
 void MainWindow::applyTheme()
 {
-    if (!darkTheme) { qApp->setStyleSheet({}); return; }
+    if (!darkTheme) { qApp->setStyleSheet(QString()); return; }
     qApp->setStyleSheet(R"(
         QWidget { background:#202124; color:#e8eaed; }
         QMenuBar,QMenu { background:#202124; color:#e8eaed; }
