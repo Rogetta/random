@@ -11,12 +11,12 @@ class QListWidgetItem;
 class QSplitter;
 class QPushButton;
 class QComboBox;
-class QLineEdit;
 class QLabel;
 class QWidget;
 class QAction;
 class QTimer;
 class QMenu;
+class QCheckBox;
 
 struct Person {
     QString name;
@@ -50,6 +50,11 @@ private slots:
     void showAbout();
     void addPerson();
     void drawStep();
+    void clearHistory();
+    void setNoRepeat(bool checked);
+    void selectAllConditions();
+    void clearConditions();
+    void invertConditions();
 
 private:
     void setupMenuBar();
@@ -60,6 +65,7 @@ private:
     void updatePersonList();
     void updatePersonInformation(const Person &person);
     void updateFilterFields();
+    void updateFilterConditions();
     void updateFilterSummary();
     QStringList selectedFilterFields() const;
     void updateDrawCandidates();
@@ -79,6 +85,7 @@ private:
     QAction *autoLoadAction = nullptr;
     QAction *themeAction = nullptr;
     QAction *aboutAction = nullptr;
+    QAction *noRepeatAction = nullptr;
 
     QWidget *centralWidget = nullptr;
     QTabBar *listTabBar = nullptr;
@@ -88,9 +95,16 @@ private:
     QLabel *personNameLabel = nullptr;
     QWidget *informationWidget = nullptr;
     QComboBox *filterTypeComboBox = nullptr;
-    QLineEdit *filterEdit = nullptr;
+    QListWidget *filterConditionList = nullptr;
+    QPushButton *selectAllButton = nullptr;
+    QPushButton *clearConditionsButton = nullptr;
+    QPushButton *invertConditionsButton = nullptr;
     QPushButton *drawButton = nullptr;
     QPushButton *addPersonButton = nullptr;
+    QLabel *historyCountLabel = nullptr;
+    QListWidget *historyListWidget = nullptr;
+    QPushButton *clearHistoryButton = nullptr;
+    QCheckBox *noRepeatCheckBox = nullptr;
     QTimer *drawTimer = nullptr;
 
     QVector<NameList> nameLists;
@@ -99,6 +113,7 @@ private:
     int currentDrawIndex = -1;
     bool darkTheme = false;
     bool drawing = false;
+    QVector<int> historyIndices;
 };
 
 #endif
