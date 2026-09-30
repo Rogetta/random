@@ -48,6 +48,7 @@ private slots:
     void autoLoadLastListChanged(bool checked);
     void toggleTheme();
     void showAbout();
+    void addPerson();
     void drawStep();
 
 private:
@@ -89,6 +90,7 @@ private:
     QComboBox *filterTypeComboBox = nullptr;
     QLineEdit *filterEdit = nullptr;
     QPushButton *drawButton = nullptr;
+    QPushButton *addPersonButton = nullptr;
     QTimer *drawTimer = nullptr;
 
     QVector<NameList> nameLists;
