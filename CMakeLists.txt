@@ -20,4 +20,18 @@ qt_add_executable(random
     random.cpp            # 随机数获取
 )
 target_link_libraries(random PRIVATE Qt6::Widgets bcrypt)
+
+# 静态链接运行时库
+if(MINGW)
+    target_link_options(random PRIVATE
+        -static
+        -static-libgcc
+        -static-libstdc++
+    )
+elseif(MSVC)
+    set_property(TARGET random PROPERTY
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    )
+endif()
+
 set_target_properties(random PROPERTIES WIN32_EXECUTABLE TRUE)
