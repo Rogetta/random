@@ -187,12 +187,95 @@ void MainWindow::personSelected(QListWidgetItem *item)
         currentListIndex >= nameLists.size())
         return;
 
-    for (const Person &person :
-         nameLists[currentListIndex].people) {
-        if (person.name == item->text()) {
-            updatePersonInformation(person);
-            return;
+    const int row = personListWidget->row(item);
+    if (row >= 0 &&
+        row < nameLists[currentListIndex].people.size()) {
+        currentDrawIndex = row;
+        updatePersonInformation(
+            nameLists[currentListIndex].people[row]);
+    }
+}
+
+void MainWindow::editPerson()
+{
+    if (drawing ||
+        currentListIndex < 0 ||
+        currentListIndex >= nameLists.size())
+        return;
+
+    const int row = personListWidget->currentRow();
+    if (row < 0 ||
+        row >= nameLists[currentListIndex].people.size())
+        return;
+
+    Person &person = nameLists[currentListIndex].people[row];
+
+    QDialog dialog(this);
+    dialog.setWindowTitle("编辑人员");
+    dialog.setMinimumWidth(420);
+
+    auto *layout = new QVBoxLayout(&dialog);
+    auto *form = new QFormLayout();
+    form->setFieldGrowthPolicy(
+        QFormLayout::AllNonFixedFieldsGrow);
+
+    auto *nameEdit = new QLineEdit(&dialog);
+    nameEdit->setText(person.name);
+    form->addRow("姓名：", nameEdit);
+
+    QStringList fields;
+    for (const Person &p : nameLists[currentListIndex].people) {
+        for (auto it = p.information.cbegin();
+             it != p.information.cend(); ++it) {
+            if (!fields.contains(it.key()))
+                fields.append(it.key());
         }
+    }
+
+    QVector<QLineEdit *> edits;
+    for (const QString &field : fields) {
+        auto *edit = new QLineEdit(&dialog);
+        edit->setText(person.information.value(field));
+        edits.append(edit);
+        form->addRow(field + "：", edit);
+    }
+
+    layout->addLayout(form);
+
+    auto *buttons = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
+        &dialog);
+    layout->addWidget(buttons);
+
+    connect(buttons, &QDialogButtonBox::accepted,
+            &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected,
+            &dialog, &QDialog::reject);
+
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    const QString name = nameEdit->text().trimmed();
+    if (name.isEmpty()) {
+        QMessageBox::warning(
+            this, "编辑人员", "姓名不能为空。");
+        return;
+    }
+
+    person.name = name;
+    person.information.clear();
+
+    for (int i = 0; i < fields.size(); ++i)
+        person.information.insert(
+            fields.at(i),
+            edits.at(i)->text().trimmed());
+
+    updatePersonList();
+
+    if (row < personListWidget->count()) {
+        personListWidget->setCurrentRow(row);
+        currentDrawIndex = row;
+        updatePersonInformation(person);
     }
 }
 

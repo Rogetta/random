@@ -224,4 +224,13 @@ void MainWindow::filterChanged()
         if (matched)
             drawCandidates.append(i);
     }
+
+    // 抽取过程中如果用户修改筛选条件，后台待揭晓结果
+    // 立即重新限定到最新的候选集合中。
+    if (drawing) {
+        if (drawCandidates.isEmpty())
+            pendingDrawIndex = -1;
+        else
+            updateDrawResult();
+    }
 }

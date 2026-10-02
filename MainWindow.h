@@ -5,19 +5,6 @@
 #include <QVector>
 #include <QMap>
 
-// =============================================================================
-// MainWindow.h —— 主窗口与数据模型
-// MainWindow 的实现按板块拆分到多个 .cpp：
-//   · 生命周期 / 信号 .... MainWindow.cpp
-//   · 界面 / 主题 ........ MainWindowUi.cpp
-//   · 名单 / 人员 ........ MainWindowList.cpp
-//   · 筛选 .............. MainWindowFilter.cpp
-//   · 抽取 / 历史 ........ MainWindowDraw.cpp
-//   · 序列化 / 文件 ...... MainWindowIo.cpp
-//   · Markdown 工具 ...... MarkdownTable.h
-// =============================================================================
-
-// ---- 前置声明 ----
 class QTabBar;
 class QListWidget;
 class QListWidgetItem;
@@ -31,7 +18,6 @@ class QTimer;
 class QMenu;
 class QCheckBox;
 
-// ---- 数据模型 ----
 struct Person {
     QString name;
     QMap<QString, QString> information;
@@ -63,7 +49,9 @@ private slots:
     void toggleTheme();
     void showAbout();
     void addPerson();
+    void editPerson();
     void drawStep();
+    void updateDrawResult();
     void clearHistory();
     void setNoRepeat(bool checked);
     void selectAllConditions();
@@ -114,16 +102,19 @@ private:
     QPushButton *invertConditionsButton = nullptr;
     QPushButton *drawButton = nullptr;
     QPushButton *addPersonButton = nullptr;
+    QPushButton *editPersonButton = nullptr;
     QLabel *historyCountLabel = nullptr;
     QListWidget *historyListWidget = nullptr;
     QPushButton *clearHistoryButton = nullptr;
     QCheckBox *noRepeatCheckBox = nullptr;
     QTimer *drawTimer = nullptr;
+    QTimer *drawResultTimer = nullptr;
 
     QVector<NameList> nameLists;
     QVector<int> drawCandidates;
     int currentListIndex = -1;
     int currentDrawIndex = -1;
+    int pendingDrawIndex = -1;
     bool darkTheme = false;
     bool drawing = false;
     QVector<int> historyIndices;

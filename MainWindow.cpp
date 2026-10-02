@@ -79,6 +79,8 @@ void MainWindow::setupConnections()
             this, &MainWindow::addList);
     connect(addPersonButton, &QPushButton::clicked,
             this, &MainWindow::addPerson);
+    connect(editPersonButton, &QPushButton::clicked,
+            this, &MainWindow::editPerson);
     connect(listTabBar, &QTabBar::tabCloseRequested,
             this, &MainWindow::closeList);
     connect(listTabBar, &QTabBar::currentChanged,
@@ -86,11 +88,22 @@ void MainWindow::setupConnections()
 
     connect(personListWidget, &QListWidget::itemClicked,
             this, &MainWindow::personSelected);
+    connect(personListWidget, &QListWidget::currentRowChanged,
+            this, [this](int row) {
+                editPersonButton->setEnabled(
+                    !drawing &&
+                    row >= 0 &&
+                    currentListIndex >= 0 &&
+                    currentListIndex < nameLists.size() &&
+                    row < nameLists[currentListIndex].people.size());
+            });
 
     connect(drawButton, &QPushButton::clicked,
             this, &MainWindow::toggleDraw);
     connect(drawTimer, &QTimer::timeout,
             this, &MainWindow::drawStep);
+    connect(drawResultTimer, &QTimer::timeout,
+            this, &MainWindow::updateDrawResult);
 
     connect(autoLoadAction, &QAction::toggled,
             this, &MainWindow::autoLoadLastListChanged);

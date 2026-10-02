@@ -70,9 +70,21 @@ void MainWindow::setupUi()
     historyCountLabel->setObjectName("historyCountLabel");
     leftLayout->addWidget(historyCountLabel);
 
+    auto *personButtonRow = new QWidget(this);
+    auto *personButtonLayout = new QHBoxLayout(personButtonRow);
+    personButtonLayout->setContentsMargins(0, 0, 0, 0);
+    personButtonLayout->setSpacing(6);
+
     addPersonButton = new QPushButton("添加人员", this);
     addPersonButton->setMinimumHeight(40);
-    leftLayout->addWidget(addPersonButton);
+
+    editPersonButton = new QPushButton("编辑人员", this);
+    editPersonButton->setMinimumHeight(40);
+    editPersonButton->setEnabled(false);
+
+    personButtonLayout->addWidget(addPersonButton);
+    personButtonLayout->addWidget(editPersonButton);
+    leftLayout->addWidget(personButtonRow);
 
     // 右侧
     auto *rightWidget = new QWidget(this);
@@ -226,8 +238,13 @@ void MainWindow::setupUi()
 
     mainLayout->addWidget(mainSplitter, 1);
 
+    // UI 滚动刷新：50 ms 一次，让滚动展示更紧凑
     drawTimer = new QTimer(this);
-    drawTimer->setInterval(70);
+    drawTimer->setInterval(30);
+
+    // 后台待揭晓结果：每 1 秒重新随机一次
+    drawResultTimer = new QTimer(this);
+    drawResultTimer->setInterval(1000);
 }
 
 void MainWindow::toggleTheme()
