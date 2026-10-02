@@ -149,12 +149,12 @@ void MainWindow::drawStep()
         drawCandidates.at(
             static_cast<int>(randomIndex));
 
-    // 只更新 UI 当前展示，不覆盖后台待揭晓结果
+    // 滚动阶段只修改一个已有 QLabel。
+    // 不重建右侧详细信息控件，避免 30ms 一次触发布局重算造成卡顿。
     currentDrawIndex = displayIndex;
-
-    updatePersonInformation(
+    personNameLabel->setText(
         nameLists[currentListIndex]
-            .people[displayIndex]);
+            .people[displayIndex].name);
 }
 
 
