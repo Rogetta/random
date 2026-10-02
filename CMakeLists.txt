@@ -19,5 +19,5 @@ qt_add_executable(random
     MarkdownTable.cpp
     random.cpp            # 随机数获取
 )
-target_link_libraries(random PRIVATE Qt6::Widgets)
+target_link_libraries(random PRIVATE Qt6::Widgets bcrypt)
 set_target_properties(random PROPERTIES WIN32_EXECUTABLE TRUE)
